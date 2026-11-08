@@ -1,0 +1,33 @@
+# Gateway configuration. Backends are any OpenAI-compatible endpoints; prices are USD per million tokens.
+tiers:
+  small:
+    base_url: http://small-llm:8000/v1
+    model: small-model
+    api_key_env: SMALL_LLM_API_KEY
+    price_in: 0.60
+    price_out: 0.60
+  large:
+    base_url: http://large-llm:8000/v1
+    model: large-model
+    api_key_env: LARGE_LLM_API_KEY
+    price_in: 10.00
+    price_out: 30.00
+
+# API keys are stored as SHA-256; create one with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+tenants:
+  - name: demo
+    key_sha256: 2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b   # "secret", for local use only
+    semantic_cache: false
+
+cache:
+  enabled: true
+  semantic: false              # off: see docs/cache-report.md before turning it on
+  semantic_threshold: 0.995
+  ttl_seconds: 86400
+
+routing:
+  router_file: models/router.json
+  cascade: true
+
+redis_url: redis://redis:6379/0
+embedder: minilm
