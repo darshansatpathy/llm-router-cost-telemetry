@@ -38,7 +38,8 @@ def load(path: Path) -> tuple[list[str], list[str], np.ndarray]:
 
 def similarities(embedder: Embedder, a: list[str], b: list[str]) -> np.ndarray:
     ea, eb = embedder.embed(a), embedder.embed(b)
-    return np.sum(ea * eb, axis=1)
+    out: np.ndarray = np.sum(ea * eb, axis=1)
+    return out
 
 
 def calibrate(sim: np.ndarray, label: np.ndarray, max_false_hit: float = 0.01) -> dict[str, Any]:
