@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-router-cost-telemetry"
+version = "0.1.0"
+description = "OpenAI-compatible gateway that routes requests between a small and a large model, caches safely in Redis, escalates failed answers, and measures cost per completed task."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "Darshan Kumar Satpathy" }]
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.32",
+  "httpx>=0.28",
+  "redis>=5.2",
+  "numpy>=2.0",
+  "pydantic>=2.9",
+  "pyyaml>=6.0",
+  "prometheus-client>=0.21",
+]
+
+[project.optional-dependencies]
+embed = ["torch>=2.4", "transformers>=4.45"]
+train = ["scikit-learn>=1.5", "pyarrow>=17"]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "anyio>=4.6", "pytest-cov>=5", "ruff>=0.8", "mypy>=1.13", "types-PyYAML", "scikit-learn>=1.5", "pyarrow>=17"]
+
+[project.scripts]
+llmrouter = "llmrouter.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "BLE"]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 190
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "transformers.*", "torch.*", "pyarrow.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# redis-py's search commands are untyped.
+module = ["llmrouter.cache"]
+disallow_untyped_calls = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["model: needs the MiniLM model"]
+
+[tool.coverage.run]
+source = ["llmrouter"]
