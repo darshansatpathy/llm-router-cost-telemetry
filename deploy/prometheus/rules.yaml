@@ -1,0 +1,49 @@
+groups:
+  - name: llm-gateway
+    interval: 1m
+    rules:
+      - record: tenant:spend_usd:rate1h
+        expr: sum by (tenant) (rate(llm_cost_usd_total[1h])) * 3600
+      - record: tenant:savings_ratio:1h
+        expr: |
+          1 - sum by (tenant) (increase(llm_cost_usd_total[1h]))
+              / sum by (tenant) (increase(llm_counterfactual_cost_usd_total[1h]))
+      - record: tenant:cost_per_completed_task_usd:1h
+        expr: |
+          sum by (tenant) (increase(agent_task_cost_usd_sum[1h]))
+          /
+          sum by (tenant) (increase(agent_tasks_total{outcome="success"}[1h]))
+      - record: tenant:small_share:1h
+        expr: |
+          sum by (tenant) (increase(llm_requests_total{served="small"}[1h]))
+          / sum by (tenant) (increase(llm_requests_total{served=~"small|large"}[1h]))
+      - record: tenant:escalation_ratio:1h
+        expr: |
+          sum by (tenant) (increase(llm_escalations_total[1h]))
+          / sum by (tenant) (increase(llm_requests_total{routed="small"}[1h]))
+      - record: tenant:cache_hit_ratio:1h
+        expr: |
+          sum by (tenant) (increase(llm_cache_lookups_total{result=~"exact|semantic"}[1h]))
+          / sum by (tenant) (increase(llm_cache_lookups_total[1h]))
+
+  - name: llm-gateway-alerts
+    rules:
+      - alert: EscalationsHigh
+        expr: tenant:escalation_ratio:1h > 0.15 and sum by (tenant) (increase(llm_requests_total{routed="small"}[1h])) > 50
+        for: 30m
+        labels: {severity: warning}
+        annotations:
+          summary: "{{ $labels.tenant }}: {{ $value | humanizePercentage }} of small-tier answers fail checks and go to the large tier"
+          description: The router threshold is too loose for this traffic, or the small model regressed. Raise the threshold or retrain.
+      - alert: SavingsCollapsed
+        expr: tenant:savings_ratio:1h < 0.2 and tenant:spend_usd:rate1h > 5
+        for: 1h
+        labels: {severity: info}
+        annotations:
+          summary: "{{ $labels.tenant }} saves only {{ $value | humanizePercentage }} against always using the large tier"
+      - alert: LargeBackendErrors
+        expr: sum(rate(llm_backend_errors_total{tier="large"}[10m])) > 0.1
+        for: 10m
+        labels: {severity: critical}
+        annotations:
+          summary: The large tier is failing; requests the router sends there, and every escalation, will fail

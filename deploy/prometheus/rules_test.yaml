@@ -1,0 +1,40 @@
+rule_files: [rules.yaml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'llm_cost_usd_total{tenant="acme",tier="small"}'
+        values: '0+0.01x120'
+      - series: 'llm_cost_usd_total{tenant="acme",tier="large"}'
+        values: '0+0.03x120'
+      - series: 'llm_counterfactual_cost_usd_total{tenant="acme"}'
+        values: '0+0.1x120'
+      - series: 'agent_task_cost_usd_sum{tenant="acme",outcome="success"}'
+        values: '0+0.04x120'
+      - series: 'agent_tasks_total{tenant="acme",outcome="success"}'
+        values: '0+2x120'
+    promql_expr_test:
+      - expr: tenant:savings_ratio:1h
+        eval_time: 90m
+        exp_samples:
+          - labels: 'tenant:savings_ratio:1h{tenant="acme"}'
+            value: 0.5999999999999994
+      - expr: tenant:cost_per_completed_task_usd:1h
+        eval_time: 90m
+        exp_samples:
+          - labels: 'tenant:cost_per_completed_task_usd:1h{tenant="acme"}'
+            value: 0.020000000000000018
+  - interval: 1m
+    input_series:
+      - series: 'llm_escalations_total{tenant="acme",reason="refusal"}'
+        values: '0+0.5x120'
+      - series: 'llm_requests_total{tenant="acme",routed="small",served="small",cache="miss"}'
+        values: '0+2x120'
+    alert_rule_test:
+      - eval_time: 100m
+        alertname: EscalationsHigh
+        exp_alerts:
+          - exp_labels: {severity: warning, tenant: acme}
+            exp_annotations:
+              summary: "acme: 25% of small-tier answers fail checks and go to the large tier"
+              description: The router threshold is too loose for this traffic, or the small model regressed. Raise the threshold or retrain.
